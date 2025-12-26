@@ -15,12 +15,6 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.MutableLiveData
 import com.erdinger.kuaijinhelper.basic.safeAs
-import com.erdinger.kuaijinhelper.recycler.currentAdapter
-import com.erdinger.kuaijinhelper.recycler.emptyView
-import com.erdinger.kuaijinhelper.recycler.itemDecoration
-import com.erdinger.kuaijinhelper.recycler.linear
-import com.erdinger.kuaijinhelper.recycler.onItemClick
-import com.erdinger.kuaijinhelper.recycler.submitLiveData
 import com.erdinger.devhelperDemo.databinding.ActivityMainBinding
 import com.erdinger.devhelperDemo.databinding.ListItemBinding
 import java.util.UUID
@@ -61,48 +55,6 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-
-
-        binding.recycler
-            .linear()
-            .currentAdapter<BluetoothDevice, ListItemBinding> { itemBinding, position, item ->
-                itemBinding.text.text = "${item?.name}\n${item?.address}"
-            }
-            .onItemClick<BluetoothDevice> { position, item ->
-                item.apply {
-                    val remoteDevice = bluetoothAdapter?.getRemoteDevice(address)
-                    if (remoteDevice?.createBond() == true) {
-
-                        val socket = remoteDevice.createRfcommSocketToServiceRecord(uuidService)
-                        Thread {
-                            try {
-                                socket?.connect()
-                                while (true) {
-                                    socket?.outputStream?.write("hellow world".toByteArray())
-                                    Thread.sleep(3000)
-                                }
-                            } catch (e: Exception) {
-                                socket?.close()
-                                runOnUiThread { showToast("连接失败") }
-
-                            }
-                        }.start()
-                    } else {
-                        showToast("配对失败")
-                    }
-                }
-            }
-            .itemDecoration(5F, 16F, R.color.red)
-            .emptyView(R.layout.empty_view)
-            .submitLiveData(this, bleDevices)
-
-        binding.reachList.setOnClickListener {
-            launchActivity<AccessibilityServiceActivity>(this)
-        }
-        binding.stopList.setOnClickListener {
-            bluetoothAdapter?.cancelDiscovery()
-        }
-
         registerReceiver(receiver, IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_DISCOVERY_STARTED)
             addAction(BluetoothDevice.ACTION_FOUND)
@@ -111,61 +63,10 @@ class MainActivity : AppCompatActivity() {
 
     }
 
-    var isService = true
-
-    @SuppressLint("MissingPermission")
-    private fun startBle() {
-        bluetoothAdapter =
-            getSystemService(Context.BLUETOOTH_SERVICE).safeAs<BluetoothManager>().adapter
-        if (bluetoothAdapter!!.isEnabled.not()) {
-            startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
-        } else if (bluetoothAdapter?.scanMode != BluetoothAdapter.SCAN_MODE_CONNECTABLE_DISCOVERABLE) {
-            startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
-                // 0为一直开启 其他数值为开始时间最多 300秒
-                putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 0)
-            })
-        } else {
-//                    val value = bleDevices.value
-//                    bluetoothAdapter?.bondedDevices?.apply {
-//                        value?.addAll(this)
-//                    }
-//                    bleDevices.postValue(value)
-            if (isService) {
-                bluetoothAdapter?.listenUsingRfcommWithServiceRecord("我的藍牙", uuidService)
-                    ?.apply {
-                        accept().apply {
-                            Thread {
-                                while (true) {
-                                    try {
-                                        val buffer = ByteArray(1024)
-                                        val read = inputStream.read(buffer)
-                                        runOnUiThread {
-                                            if (read > 0) showToast(String(buffer))
-                                        }
-                                    } catch (e: Exception) {
-                                        close()
-                                        runOnUiThread {
-                                            showToast("连接断开")
-                                        }
-                                    }
-                                    Thread.sleep(3000)
-                                }
-                            }.start()
-                        }
-                    }
-            } else {
-                bluetoothAdapter!!.startDiscovery()
-            }
-        }
-    }
-
 
     override fun onDestroy() {
         super.onDestroy()
         unregisterReceiver(receiver)
     }
 
-    fun showToast(content: String) {
-        Toast.makeText(this@MainActivity, content, Toast.LENGTH_SHORT).show()
-    }
 }
