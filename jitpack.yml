@@ -1,3 +1,12 @@
 
 jdk:
   - openjdk17
+android:
+  buildTools: "34.0.0"
+  compileSdk: 33
+before_install:
+  - sdk install java 17.0.12-oracle
+  - sdk use java 17.0.12-oracle
+script:
+  # 仅构建 kuaijinHelper 模块，跳过 app 模块
+  - ./gradlew clean kuaijinHelper:assembleRelease kuaijinHelper:publishToMavenLocal -Pgroup=com.github.erdingerdev -Pversion=v1.0 -xtest -xlint
